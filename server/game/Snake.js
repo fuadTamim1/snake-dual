@@ -19,11 +19,19 @@ class Snake {
   constructor(id, color, startPos, startDir = 'RIGHT') {
     this.id = id;
     this.color = color;
-    // Body stored head-first: body[0] is the head
+
+    // Build body extending AWAY from the direction of travel so no self-collision on tick 1
+    const tail = {
+      UP:    { dx:  0, dy:  1 },
+      DOWN:  { dx:  0, dy: -1 },
+      LEFT:  { dx:  1, dy:  0 },
+      RIGHT: { dx: -1, dy:  0 },
+    }[startDir] || { dx: -1, dy: 0 };
+
     this.body = [
-      { x: startPos.x,     y: startPos.y },
-      { x: startPos.x - 1, y: startPos.y },
-      { x: startPos.x - 2, y: startPos.y },
+      { x: startPos.x,             y: startPos.y },
+      { x: startPos.x + tail.dx,   y: startPos.y + tail.dy },
+      { x: startPos.x + tail.dx*2, y: startPos.y + tail.dy*2 },
     ];
     this.direction = startDir;
     this.nextDirection = startDir;
