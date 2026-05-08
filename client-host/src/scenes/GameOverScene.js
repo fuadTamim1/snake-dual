@@ -14,10 +14,10 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.winnerName  = data.winnerName || null;
-    this.winnerId    = data.winnerId   || null;
-    this.scores      = data.scores     || {};
-    this.names       = data.names      || {};
+    this.winnerName = data.winnerName || null;
+    this.winnerId   = data.winnerId   || null;
+    this.roundWins  = data.roundWins  || {};
+    this.names      = data.names      || {};
   }
 
   preload() {
@@ -53,18 +53,17 @@ export default class GameOverScene extends Phaser.Scene {
       ease: 'Back.Out',
     });
 
-    // Final scores
-    const scoreEntries = Object.entries(this.scores);
-    scoreEntries.forEach(([id, score], i) => {
-      const name  = this.names[id] || `Player ${i + 1}`;
+    // Round wins per player
+    const totalRounds = 5;
+    const winEntries = Object.entries(this.names);
+    winEntries.forEach(([id, name], i) => {
+      const wins = this.roundWins[id] || 0;
       const isWinner = id === this.winnerId;
-      const col   = isWinner ? '#ffff00' : '#888888';
-      const yPos  = 380 + i * 70;
-
-      this.add.text(CANVAS_W / 2, yPos, `${name}: ${score}`, {
-        fontFamily: 'monospace',
-        fontSize: '36px',
-        color: col,
+      const col  = isWinner ? '#ffff00' : '#888888';
+      const dots = '● '.repeat(wins) + '○ '.repeat(totalRounds - wins);
+      const yPos = 390 + i * 66;
+      this.add.text(CANVAS_W / 2, yPos, `${name}   ${dots.trim()}`, {
+        fontFamily: 'monospace', fontSize: '30px', color: col,
       }).setOrigin(0.5);
     });
 
@@ -82,8 +81,9 @@ export default class GameOverScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-R', () => this._doReset());
     this.input.on('pointerdown', () => this._doReset());
 
-    socket.on('game:reset', () => {
-      this.scene.start('LobbyScene');
+    // game:reset carries restored room data so LobbyScene doesn't create a new room
+    socket.on('game:reset', (resetData) => {
+      this.scene.start('LobbyScene', resetData || {});
     });
   }
 
@@ -108,8 +108,9 @@ export default class GameOverScene extends Phaser.Scene {
   _doReset() {
     if (this._resetDone) return;
     this._resetDone = true;
+    // Emit reset — server responds with game:reset event that carries room data
     socket.emit('host:reset');
-    this.scene.start('LobbyScene');
+    // Don't navigate yet; wait for game:reset socket event
   }
 
   shutdown() {

@@ -91,11 +91,12 @@ function registerHandlers(io) {
     });
 
     // ── Host resets after game over ──────────────────────────────────────
-    socket.on('host:reset', () => {
+    socket.on('host:reset', async () => {
       const code = socketRoom.get(socket.id);
       const manager = rooms.get(code);
       if (!manager) return;
-      manager.reset();
+      const qrDataUrl = await buildQR(code);
+      manager.reset(qrDataUrl);
     });
 
     // ── Player sends direction input ─────────────────────────────────────

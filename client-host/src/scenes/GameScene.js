@@ -55,6 +55,14 @@ export default class GameScene extends Phaser.Scene {
       this._render(state);
     });
 
+    // Round ends — go to RoundOverScene
+    socket.on('round:over', (data) => {
+      this.time.delayedCall(800, () => {
+        this.scene.start('RoundOverScene', data);
+      });
+    });
+
+    // game:over fallback (disconnect during last round etc.)
     socket.on('game:over', (data) => {
       this.time.delayedCall(600, () => {
         this.scene.start('GameOverScene', data);
@@ -125,11 +133,17 @@ export default class GameScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    // Title bar
-    this.add.text(CANVAS_W / 2, 30, 'SNAKE DUEL', {
+    // Title + round indicator
+    this.add.text(CANVAS_W / 2, 20, 'SNAKE DUEL', {
       fontFamily: 'monospace',
-      fontSize: '28px',
+      fontSize: '22px',
       color: '#ffffff',
+    }).setOrigin(0.5);
+
+    this.roundText = this.add.text(CANVAS_W / 2, 46, 'ROUND 1 / 5', {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#00ff88',
     }).setOrigin(0.5);
   }
 
@@ -146,6 +160,11 @@ export default class GameScene extends Phaser.Scene {
       if (snake.score > prev) this._sfx.play('eat');
       this._prevScores[snake.id] = snake.score;
     });
+
+    // Update round HUD
+    if (state.round && this.roundText) {
+      this.roundText.setText(`ROUND ${state.round} / ${state.totalRounds}`);
+    }
 
     // Death shake + sound
     if (died && died.length > 0) {
@@ -237,6 +256,7 @@ export default class GameScene extends Phaser.Scene {
 
   shutdown() {
     socket.off('game:state');
+    socket.off('round:over');
     socket.off('game:over');
   }
 }

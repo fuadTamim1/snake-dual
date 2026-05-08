@@ -18,10 +18,26 @@ export default class LobbyScene extends Phaser.Scene {
     this.players = [];
   }
 
+  init(data) {
+    // Populated when returning from GameOverScene after a full match
+    this._restoreCode    = data && data.roomCode   ? data.roomCode   : null;
+    this._restoreQr      = data && data.qrDataUrl  ? data.qrDataUrl  : null;
+    this._restorePlayers = data && data.players    ? data.players    : [];
+  }
+
   create() {
     this._buildUI();
     this._registerSocketEvents();
-    socket.emit('room:create');
+
+    if (this._restoreCode) {
+      // Back from a completed match — reuse existing room, no new QR needed
+      this.roomCode = this._restoreCode;
+      this.roomCodeText.setText(this._restoreCode);
+      this._renderQR(this._restoreQr);
+      this._updatePlayers(this._restorePlayers);
+    } else {
+      socket.emit('room:create');
+    }
   }
 
   _buildUI() {
