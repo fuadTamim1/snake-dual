@@ -1,0 +1,18 @@
+{
+  "name": "dual-snake",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client-host",
+    "client-mobile"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,host,mobile -c cyan,green,yellow \"npm run dev --workspace=server\" \"npm run dev --workspace=client-host\" \"npm run dev --workspace=client-mobile\"",
+    "build": "npm run build --workspace=client-host && echo Build complete. Host assets in server/public/",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
