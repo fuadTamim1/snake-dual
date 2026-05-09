@@ -20,9 +20,12 @@ export default class LobbyScene extends Phaser.Scene {
 
   init(data) {
     // Populated when returning from GameOverScene after a full match
-    this._restoreCode    = data && data.roomCode   ? data.roomCode   : null;
-    this._restoreQr      = data && data.qrDataUrl  ? data.qrDataUrl  : null;
-    this._restorePlayers = data && data.players    ? data.players    : [];
+    this._restoreCode    = data && data.roomCode      ? data.roomCode      : null;
+    this._restoreQr      = data && data.qrDataUrl     ? data.qrDataUrl     : null;
+    this._restorePlayers = data && data.players       ? data.players       : [];
+    // WiFi QR is static — cache it on the class the first time and reuse
+    this._restoreWifiQr  = data && data.wifiQrDataUrl ? data.wifiQrDataUrl : null;
+    this._restoreWifiSsid= data && data.wifiSsid      ? data.wifiSsid      : null;
   }
 
   create() {
@@ -34,6 +37,7 @@ export default class LobbyScene extends Phaser.Scene {
       this.roomCode = this._restoreCode;
       this.roomCodeText.setText(this._restoreCode);
       this._renderQR(this._restoreQr);
+      this._renderWifiQR(this._restoreWifiQr, this._restoreWifiSsid);
       this._updatePlayers(this._restorePlayers);
     } else {
       socket.emit('room:create');
@@ -49,88 +53,95 @@ export default class LobbyScene extends Phaser.Scene {
     for (let y = 0; y <= CANVAS_H; y += 40) gfx.lineBetween(0, y, CANVAS_W, y);
 
     // Title
-    this.add.text(CANVAS_W / 2, 60, 'SNAKE DUEL', {
+    this.add.text(CANVAS_W / 2, 48, 'SNAKE DUEL', {
       fontFamily: 'monospace',
-      fontSize: '56px',
+      fontSize: '48px',
       color: NEON_GREEN,
       stroke: '#000',
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    // Room code label
-    this.add.text(CANVAS_W / 2, 140, 'ROOM CODE', {
-      fontFamily: 'monospace',
-      fontSize: '20px',
-      color: DIM_GREY,
+    // ── Center column: room code + player slots ───────────────────────────
+    this.add.text(CANVAS_W / 2, 118, 'ROOM CODE', {
+      fontFamily: 'monospace', fontSize: '16px', color: DIM_GREY,
     }).setOrigin(0.5);
 
-    this.roomCodeText = this.add.text(CANVAS_W / 2, 185, '----', {
+    this.roomCodeText = this.add.text(CANVAS_W / 2, 162, '----', {
       fontFamily: 'monospace',
-      fontSize: '72px',
+      fontSize: '64px',
       color: NEON_WHITE,
       stroke: '#000',
       strokeThickness: 6,
-      letterSpacing: 24,
+      letterSpacing: 20,
     }).setOrigin(0.5);
 
-    // QR placeholder container
-    this.qrContainer = this.add.container(CANVAS_W / 2, 440);
-    this.qrBg = this.add.rectangle(0, 0, 260, 260, 0xffffff, 1);
+    this._buildPlayerSlots();
+
+    this.startHint = this.add.text(CANVAS_W / 2, 668, '', {
+      fontFamily: 'monospace', fontSize: '22px', color: NEON_GREEN,
+    }).setOrigin(0.5).setAlpha(0);
+
+    this.input.keyboard.on('keydown-SPACE', () => this._tryStart());
+    this.input.on('pointerdown', () => this._tryStart());
+
+    // ── Left column: WiFi QR ──────────────────────────────────────────────
+    this.add.text(213, 255, '① CONNECT TO WIFI', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#aaaaff',
+    }).setOrigin(0.5);
+
+    this.wifiQrContainer = this.add.container(213, 435);
+    this.wifiQrBg = this.add.rectangle(0, 0, 220, 220, 0xffffff, 1);
+    this.wifiQrContainer.add(this.wifiQrBg);
+    this.wifiQrHint = this.add.text(0, 0, 'No WiFi\nConfigured', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#000000', align: 'center',
+    }).setOrigin(0.5);
+    this.wifiQrContainer.add(this.wifiQrHint);
+
+    this.wifiSsidText = this.add.text(213, 556, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: '#aaaaff', align: 'center', wordWrap: { width: 210 },
+    }).setOrigin(0.5);
+
+    // ── Right column: Game QR ─────────────────────────────────────────────
+    this.add.text(1067, 255, '② SCAN TO JOIN', {
+      fontFamily: 'monospace', fontSize: '15px', color: NEON_GREEN,
+    }).setOrigin(0.5);
+
+    this.qrContainer = this.add.container(1067, 435);
+    this.qrBg = this.add.rectangle(0, 0, 220, 220, 0xffffff, 1);
     this.qrContainer.add(this.qrBg);
     this.qrHint = this.add.text(0, 0, 'Loading QR...', {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#000000',
+      fontFamily: 'monospace', fontSize: '14px', color: '#000000',
     }).setOrigin(0.5);
     this.qrContainer.add(this.qrHint);
 
-    // Scan hint
-    this.add.text(CANVAS_W / 2, 590, 'Scan to join on your phone', {
-      fontFamily: 'monospace',
-      fontSize: '20px',
-      color: DIM_GREY,
+    this.add.text(1067, 556, 'Open camera app\nand point at code', {
+      fontFamily: 'monospace', fontSize: '13px', color: DIM_GREY, align: 'center',
     }).setOrigin(0.5);
-
-    // Player slots
-    this._buildPlayerSlots();
-
-    // Start button hint (shown when 2 players ready)
-    this.startHint = this.add.text(CANVAS_W / 2, 650, '', {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: NEON_GREEN,
-    }).setOrigin(0.5).setAlpha(0);
-
-    // Listen for spacebar / click to start
-    this.input.keyboard.on('keydown-SPACE', () => this._tryStart());
-    this.input.on('pointerdown', () => this._tryStart());
   }
 
   _buildPlayerSlots() {
-    const slotX = [280, CANVAS_W - 280];
     const colors = [NEON_GREEN, NEON_RED];
     const labels = ['PLAYER 1', 'PLAYER 2'];
+    // Stacked vertically in the center column
+    const slotY = [380, 480];
 
-    this.slotTexts = slotX.map((x, i) => {
-      this.add.text(x, 330, labels[i], {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: colors[i],
+    this.slotTexts = slotY.map((y, i) => {
+      this.add.text(CANVAS_W / 2, y - 28, labels[i], {
+        fontFamily: 'monospace', fontSize: '15px', color: colors[i],
       }).setOrigin(0.5);
 
-      return this.add.text(x, 380, 'Waiting...', {
-        fontFamily: 'monospace',
-        fontSize: '26px',
-        color: DIM_GREY,
+      return this.add.text(CANVAS_W / 2, y, 'Waiting...', {
+        fontFamily: 'monospace', fontSize: '26px', color: DIM_GREY,
       }).setOrigin(0.5);
     });
   }
 
   _registerSocketEvents() {
-    socket.on('room:created', ({ roomCode, qrDataUrl, players }) => {
+    socket.on('room:created', ({ roomCode, qrDataUrl, wifiQrDataUrl, wifiSsid, players }) => {
       this.roomCode = roomCode;
       this.roomCodeText.setText(roomCode);
       this._renderQR(qrDataUrl);
+      this._renderWifiQR(wifiQrDataUrl, wifiSsid);
       this._updatePlayers(players);
     });
 
@@ -179,17 +190,29 @@ export default class LobbyScene extends Phaser.Scene {
 
   _renderQR(dataUrl) {
     if (!dataUrl) return;
-    // Remove placeholder text
     this.qrHint.setVisible(false);
-
-    // Add QR image texture from base64
     if (this.textures.exists('qr')) this.textures.remove('qr');
-
     this.textures.once('addtexture-qr', () => {
-      const qrImg = this.add.image(0, 0, 'qr').setDisplaySize(240, 240);
+      const qrImg = this.add.image(0, 0, 'qr').setDisplaySize(210, 210);
       this.qrContainer.add(qrImg);
     });
     this.textures.addBase64('qr', dataUrl);
+  }
+
+  _renderWifiQR(dataUrl, ssid) {
+    if (!dataUrl) {
+      // No WiFi config — dim the placeholder box
+      this.wifiQrBg.setFillStyle(0x222222, 1);
+      return;
+    }
+    this.wifiQrHint.setVisible(false);
+    if (this.textures.exists('qr-wifi')) this.textures.remove('qr-wifi');
+    this.textures.once('addtexture-qr-wifi', () => {
+      const img = this.add.image(0, 0, 'qr-wifi').setDisplaySize(210, 210);
+      this.wifiQrContainer.add(img);
+    });
+    this.textures.addBase64('qr-wifi', dataUrl);
+    if (ssid) this.wifiSsidText.setText(ssid);
   }
 
   shutdown() {

@@ -5,6 +5,18 @@ const QRCode = require('qrcode');
 
 const MOBILE_APP_URL = process.env.MOBILE_APP_URL || 'http://localhost:3001';
 
+// Pre-build the WiFi QR once (same for every room)
+let _wifiQrCache = null;
+async function getWifiQR() {
+  if (_wifiQrCache !== undefined) return _wifiQrCache;
+  const ssid = process.env.WIFI_SSID;
+  const pass = process.env.WIFI_PASS || '';
+  if (!ssid) { _wifiQrCache = null; return null; }
+  const wifiStr = `WIFI:T:WPA;S:${ssid};P:${pass};;`;
+  _wifiQrCache = await QRCode.toDataURL(wifiStr, { width: 300, margin: 2 });
+  return _wifiQrCache;
+}
+
 /** @type {Map<string, GameManager>} roomCode → GameManager */
 const rooms = new Map();
 /** @type {Map<string, string>} socketId → roomCode */
@@ -48,8 +60,14 @@ function registerHandlers(io) {
       socketRoom.set(socket.id, code);
       socket.join(code);
 
-      const qrDataUrl = await buildQR(code);
-      socket.emit('room:created', { roomCode: code, qrDataUrl, players: [] });
+      const [qrDataUrl, wifiQrDataUrl] = await Promise.all([buildQR(code), getWifiQR()]);
+      socket.emit('room:created', {
+        roomCode: code,
+        qrDataUrl,
+        wifiQrDataUrl,
+        wifiSsid: process.env.WIFI_SSID || null,
+        players: [],
+      });
       console.log(`[room] created: ${code}`);
     });
 
@@ -95,8 +113,8 @@ function registerHandlers(io) {
       const code = socketRoom.get(socket.id);
       const manager = rooms.get(code);
       if (!manager) return;
-      const qrDataUrl = await buildQR(code);
-      manager.reset(qrDataUrl);
+      const [qrDataUrl, wifiQrDataUrl] = await Promise.all([buildQR(code), getWifiQR()]);
+      manager.reset(qrDataUrl, wifiQrDataUrl, process.env.WIFI_SSID || null);
     });
 
     // ── Player sends direction input ─────────────────────────────────────

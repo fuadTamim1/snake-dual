@@ -141,7 +141,7 @@ class GameManager {
    * Reset after full match â€” keep players in room, clear round state.
    * @param {string} qrDataUrl fresh QR to send so lobby can redisplay it
    */
-  reset(qrDataUrl) {
+  reset(qrDataUrl, wifiQrDataUrl = null, wifiSsid = null) {
     this._stopAll();
     this.state = STATES.READY;
     this.snakes = [];
@@ -153,6 +153,8 @@ class GameManager {
     this.io.to(this.roomCode).emit('game:reset', {
       roomCode: this.roomCode,
       qrDataUrl,
+      wifiQrDataUrl,
+      wifiSsid,
       players,
     });
   }
