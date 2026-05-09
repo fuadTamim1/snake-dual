@@ -8,13 +8,13 @@ const CANVAS_W  = 1280;
 const CANVAS_H  = 720;
 const GRID_W    = 40;
 const GRID_H    = 40;
-const CELL      = 20;           // px per grid cell
+const CELL      = 16;           // px per grid cell — 40×16=640 fits within 720px canvas height
 
 // Arena starts at top-left of the centred grid
-const ARENA_X   = Math.floor((CANVAS_W - GRID_W * CELL) / 2); // 240
-const ARENA_Y   = Math.floor((CANVAS_H - GRID_H * CELL) / 2); // 60
+const ARENA_X   = Math.floor((CANVAS_W - GRID_W * CELL) / 2); // 320
+const ARENA_Y   = Math.floor((CANVAS_H - GRID_H * CELL) / 2); // 40
 
-const SIDEBAR_W = ARENA_X; // 240px each side
+const SIDEBAR_W = ARENA_X; // 320px each side
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -152,6 +152,9 @@ export default class GameScene extends Phaser.Scene {
 
     // Update player names / scores
     snakes.forEach((snake, idx) => {
+      if (this.nameTexts[idx] && state.names && state.names[snake.id]) {
+        this.nameTexts[idx].setText(state.names[snake.id]);
+      }
       if (this.scoreTexts[idx]) {
         this.scoreTexts[idx].setText(String(snake.score));
       }

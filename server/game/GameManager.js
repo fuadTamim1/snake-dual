@@ -162,6 +162,7 @@ class GameManager {
   // â”€â”€â”€ Game Loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   _tick() {
+    if (this.state !== STATES.PLAYING) return; // safety: ignore stale timer callbacks
     for (const snake of this.snakes) {
       if (snake.alive) snake.move();
     }
@@ -172,6 +173,8 @@ class GameManager {
   }
 
   _checkRoundEnd(justDied) {
+    if (this.state !== STATES.PLAYING) return; // prevent duplicate processing
+    if (this.state !== STATES.PLAYING) return; // prevent duplicate processing
     const alive = this.snakes.filter(s => s.alive);
     if (alive.length > 1) return;
 
@@ -240,6 +243,7 @@ class GameManager {
   // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   _broadcastState(died = []) {
+    const names = Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.name]));
     this.io.to(this.roomCode).emit('game:state', {
       snakes:      this.snakes.map(s => s.toJSON()),
       apples:      this.appleManager.toJSON(),
@@ -248,6 +252,7 @@ class GameManager {
       state:       this.state,
       round:       this.currentRound,
       totalRounds: TOTAL_ROUNDS,
+      names,
     });
   }
 
