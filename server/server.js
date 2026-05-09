@@ -13,15 +13,30 @@ const MOBILE_APP_URL = process.env.MOBILE_APP_URL || 'http://localhost:3001';
 const app = express();
 const httpServer = http.createServer(app);
 
-// Allow the host display (Vite dev server) and mobile controller origins
-const allowedOrigins = [
-  `http://localhost:3002`, // Vite dev server (client-host)
-  MOBILE_APP_URL,
-  // Allow same-origin requests when serving built files
-  `http://localhost:${PORT}`,
-];
+// CORS: allow localhost (dev) + any port on the same host as MOBILE_APP_URL.
+// This covers: local dev, LAN (any IP), and VPS — no hardcoded origins.
+const mobileHostname = (() => {
+  try { return new URL(MOBILE_APP_URL).hostname; } catch { return 'localhost'; }
+})();
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // same-origin / server-to-server
+  try {
+    const { hostname, port } = new URL(origin);
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    if (hostname === mobileHostname) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const corsOptions = {
+  origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve built Phaser host display
@@ -35,7 +50,7 @@ app.get('/', (req, res) => {
 
 // Socket.IO
 const io = new Server(httpServer, {
-  cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
+  cors: { origin: (origin, cb) => cb(null, isAllowedOrigin(origin)), methods: ['GET', 'POST'], credentials: true },
 });
 
 registerHandlers(io);
