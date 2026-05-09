@@ -6,7 +6,7 @@ const QRCode = require('qrcode');
 const MOBILE_APP_URL = process.env.MOBILE_APP_URL || 'http://localhost:3001';
 
 // Pre-build the WiFi QR once (same for every room)
-let _wifiQrCache = null;
+let _wifiQrCache = undefined;
 async function getWifiQR() {
   if (_wifiQrCache !== undefined) return _wifiQrCache;
   const ssid = process.env.WIFI_SSID;
